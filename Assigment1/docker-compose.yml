@@ -1,0 +1,85 @@
+services:
+  user_db:
+    image: postgres:latest
+    container_name: user_db
+    restart: always
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+    ports:
+      - "5432:5432"
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  device_db:
+    image: postgres:latest
+    container_name: device_db
+    restart: always
+    environment:
+      POSTGRES_DB: device_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+    ports:   
+      - "5433:5432"
+    volumes:
+      - device_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  user_app:
+    image: users_micro
+    container_name: user_app
+    build:
+      context: ./users_micro
+      dockerfile: Dockerfile
+    depends_on:
+      user_db:
+        condition: service_healthy
+    ports:  
+      - "8080:8080"
+    environment:
+      DB_IP: user_db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: root
+      DB_DBNAME: user_db
+      DEVICE_APP_URL: http://device_app:8081/
+
+  device_app:
+    image: device_micro
+    container_name: device_app
+    build:
+      context: ./device_micro
+      dockerfile: Dockerfile
+    depends_on:
+      device_db:
+        condition: service_healthy
+      user_app:
+        condition: service_started
+    ports:  
+      - "8081:8080"
+    environment:
+      DB_IP: device_db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: root
+      DB_DBNAME: device_db
+
+volumes:
+  user_db_data:
+    external: true
+  device_db_data:
+    external: true
+
+networks:
+  default:
+    driver: bridge
