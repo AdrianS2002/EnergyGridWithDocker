@@ -11,7 +11,7 @@ import java.util.List;
 @Getter
 @JsonIgnoreProperties(value = {"stackTrace", "suppressed", "cause", "localizedMessage"})
 //scoatem field-urile mostenite care nu ne intereseaza
-public class ApiExceptionResponse extends Exception {
+public class ApiExceptionResponse extends RuntimeException {
     //mosteneste atributul "message" de la Exception
     private final HttpStatus status;
     private final List<String> errors;

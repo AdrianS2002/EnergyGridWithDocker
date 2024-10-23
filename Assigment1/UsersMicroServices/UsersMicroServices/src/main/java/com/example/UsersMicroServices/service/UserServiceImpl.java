@@ -12,13 +12,16 @@ import com.example.UsersMicroServices.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import javax.swing.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class UserServiceImpl implements UserService{
@@ -34,6 +37,49 @@ public class UserServiceImpl implements UserService{
     public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+    }
+
+    private User sendPostRequest(UserCreationDTO userCreationDTO)
+    {
+        Map<String,String> variables = new HashMap<>();
+        variables.put("username",userCreationDTO.getUsername());
+        variables.put("email",userCreationDTO.getEmail());
+        variables.put("telephone",userCreationDTO.getTelephone());
+
+        ResponseEntity<UserDTO> responseEntity = new RestTemplate().postForEntity(DEVICE_USER_APP+"/users",variables,UserDTO.class);
+        if(!responseEntity.getStatusCode().is2xxSuccessful())
+            throw new ApiExceptionResponse("Error in creating user", HttpStatus.INTERNAL_SERVER_ERROR, null);
+        return UserMapper.toEntity(Objects.requireNonNull(responseEntity.getBody()));
+    }
+
+    private void sendPutRequest(UserUpdateDTO userUpdateDTO)
+    {
+        Map<String,Object> variables = new HashMap<>();
+
+        variables.put("userId",userUpdateDTO.getUserDTO().getUserId());
+
+        if(userUpdateDTO.getUsername() != null)
+            variables.put("username",userUpdateDTO.getUsername());
+        else
+            variables.put("username",userUpdateDTO.getUserDTO().getUsername());
+        if(userUpdateDTO.getEmail() != null)
+            variables.put("email",userUpdateDTO.getEmail());
+        else
+            variables.put("email",userUpdateDTO.getUserDTO().getEmail());
+        if(userUpdateDTO.getTelephone() != null)
+            variables.put("telephone",userUpdateDTO.getTelephone());
+        else
+            variables.put("telephone",userUpdateDTO.getUserDTO().getTelephone());
+
+        ResponseEntity<UserDTO> responseEntity = new RestTemplate().exchange(DEVICE_USER_APP+"/users", HttpMethod.PUT, new HttpEntity<>(variables),UserDTO.class);
+        if(!responseEntity.getStatusCode().is2xxSuccessful())
+            throw new ApiExceptionResponse("Error in updating user", HttpStatus.INTERNAL_SERVER_ERROR, null);
+    }
+
+    private boolean sendDeleteRequest(Long userId)
+    {
+        ResponseEntity<Void> responseEntity = new RestTemplate().exchange(DEVICE_USER_APP+"/users/"+userId, HttpMethod.DELETE, null,Void.class);
+        return responseEntity.getStatusCode().is2xxSuccessful();
     }
 
     @Override
@@ -60,15 +106,17 @@ public class UserServiceImpl implements UserService{
 
     @Override
     public UserDTO createUser(UserCreationDTO userCreationDTO) {
-        User entity = UserMapper.toCreateEntity(userCreationDTO);
 
-        entity.setPassword(passwordEncoder.encode(entity.getPassword()));
+       User entity = sendPostRequest(userCreationDTO);
+        entity.setRole(userCreationDTO.getRole());
+        entity.setPassword(passwordEncoder.encode(userCreationDTO.getPassword()));
         if(entity.getRole() == null) {
             entity.setRole(Role.USER);
         }
         entity = userRepository.save(entity);
         return UserMapper.toDTO(entity);
     }
+
 
     @Override
     public UserDTO updateUser(UserDTO userDTO) {
@@ -87,8 +135,18 @@ public class UserServiceImpl implements UserService{
 
 
     @Override
-    public void deleteUser(Long userId) {
+    public String deleteUser(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new ApiExceptionResponse("User not found", HttpStatus.NOT_FOUND, null);
+        }
+
+        if(!sendDeleteRequest(userId))
+        {
+            throw new ApiExceptionResponse("Error in deleting user", HttpStatus.INTERNAL_SERVER_ERROR, null);
+        }
+
         userRepository.deleteById(userId);
+        return "User deleted successfully";
 
     }
 
@@ -120,6 +178,8 @@ public class UserServiceImpl implements UserService{
     public UserDTO updateAllUser(Long userId, UserUpdateDTO userUpdateDTO) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        sendPutRequest(userUpdateDTO);
 
         // Actualizează valorile din userDTO dacă sunt prezente
         if (userUpdateDTO.getUserDTO() != null) {

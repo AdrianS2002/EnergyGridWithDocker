@@ -19,7 +19,7 @@ public class UsersMicroServicesApplication {
 		SpringApplication.run(UsersMicroServicesApplication.class, args);
 	}
 
-	@Bean
+	/*@Bean
 	CommandLineRunner init(UserService userService) {
 		return (args) -> {
 			User user1 = new User();
@@ -80,5 +80,5 @@ public class UsersMicroServicesApplication {
 
 
 		};
-	}
+	}*/
 }

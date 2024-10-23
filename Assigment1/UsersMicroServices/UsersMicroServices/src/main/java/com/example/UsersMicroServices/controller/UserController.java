@@ -52,8 +52,8 @@ public class UserController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
         try {
-            userService.deleteUser(id);
-            return ResponseEntity.ok().build();
+
+            return ResponseEntity.ok(userService.deleteUser(id));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }

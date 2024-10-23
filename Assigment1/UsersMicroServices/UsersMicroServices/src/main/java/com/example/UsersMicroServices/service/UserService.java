@@ -15,7 +15,7 @@ public interface UserService {
     User findByEmail(String email);
     UserDTO createUser(UserCreationDTO userCreationDTO);
     UserDTO updateUser(UserDTO userDTO);
-    void deleteUser(Long userId);
+    String deleteUser(Long userId);
 
     UserDTO assignRole(Long userId, String role);
 
